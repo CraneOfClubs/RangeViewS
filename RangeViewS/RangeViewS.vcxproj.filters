@@ -26,5 +26,8 @@
     <ClInclude Include="rangeview.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="nullable.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
