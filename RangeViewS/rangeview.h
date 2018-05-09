@@ -45,7 +45,7 @@ namespace view {
 	template<typename T>
 	RangeView<T> operator|(std::vector<T> &vec, RangeView<T> rv) 
 	{
-		rv.setCollection(&vec);
+		rv.setCollection(&vec); //
 		return rv;
 	}
 
