@@ -2,6 +2,7 @@
 #include <vector>
 #include <functional>
 #include <iostream>
+#include <numeric>
 
 namespace view {
 
@@ -39,7 +40,6 @@ namespace view {
 	public:
 		typedef std::function< std::vector<T>(std::vector<T>&, RangeView<T>&) > VFunc;
 		typedef std::vector<VFunc> VFuncs;
-		int Count = -1;
 
 		RangeView(std::function< std::vector<T>(std::vector<T>&) > func) 
 		{
@@ -47,12 +47,38 @@ namespace view {
 		}
 		RangeView(std::vector<T> &v) : _storage(v) {}
 		RangeView(VFunc generator) : _storage(std::vector<T>()), _generator(generator), _constructed(true), _infinte(true) {}
+		RangeView() : _storage(std::vector<T>()) {}
+
 		template<class T>
 		friend RangeView<T> operator|(std::vector<T> &v, RangeView<T> rv);
 
 		template<typename T, typename F>
 		friend std::vector<F> operator|(RangeView<T> rv, std::function< std::vector<F>(std::vector<T>&) > _predicate);
+
 		std::vector<T> toVector();
+
+		void setCount(int to) 
+		{
+			_infinte = false;
+			_counterInit = true;
+			_count = to;
+		}
+
+		bool isCounterInited() 
+		{
+			return _counterInit;
+		}
+
+		int Count() 
+		{
+			return _count;
+		}
+
+		void replaceStorage(const std::vector<T> &storage) 
+		{
+			_storage.clear();
+			_storage = storage;
+		}
 
 		bool isInfinite()
 		{
@@ -76,6 +102,8 @@ namespace view {
 		std::vector<T> _storage;
 		std::vector<T> _result;
 		VFuncs _actions;
+		bool _counterInit = false;
+		int _count = 0;
 
 		void setCollection(std::vector<T> *_v) 
 		{
@@ -98,7 +126,7 @@ namespace view {
 	RangeView<T> operator|(std::vector<T> &vect, Invoker<F> func) 
 	{
 		RangeView<T> res = RangeView<T>(vect);
-		res.addAction(std::function< std::vector<T>(std::vector<T>&, RangeView<T>&) >(func.function));
+		res.add(std::function< std::vector<T>(std::vector<T>&, RangeView<T>&) >(func.function));
 		return res;
 	}
 
@@ -106,26 +134,56 @@ namespace view {
 	RangeView<T> operator|(std::vector<T> &vect, LazyFiniteInvoker<F> func) 
 	{
 		RangeView<T> res = RangeView<T>(vect);
-		res.addAction(std::function< std::vector<T>(std::vector<T>&, RangeView<T>&) >(func.function));
+		res.add(std::function< std::vector<T>(std::vector<T>&, RangeView<T>&) >(func.function));
 		return res;
 	}
 
 	template<typename T, typename F>
-	auto operator|(RangeView<T> range, LazyFiniteInvoker<F> termOp)
+	auto operator|(RangeView<T> range, LazyFiniteInvoker<F> invoker)
 	{
 		if (range.isInfinite())
 		{
-			termOp(std::vector<T>(), range);
+			invoker(std::vector<T>(), range);
 		}
 		else 
 		{
-			range.add(std::function< std::vector<T>(std::vector<T>&, RangeView<T>&) >(termOp.function));
+			range.add(std::function< std::vector<T>(std::vector<T>&, RangeView<T>&) >(invoker.function));
 		}
 		return range;
 	}
 
+	template<typename T, typename Res>
+	struct TwoPack 
+	{
+		TwoPack(RangeView<T> oldr, RangeView<Res> newr, std::function< std::vector<Res>(std::vector<T>&, RangeView<T>&) >func) : firstRange(oldr), newRange(newr), _func(func) {}
+		RangeView<T> firstRange;
 
+		RangeView<Res> newRange;
+		std::function<std::vector<Res>(std::vector<T>&, RangeView<T>&)> _func;
+	};
 
+	template<typename T, typename F>
+	auto operator|(RangeView<T> rv, FiniteInvoker<F> invoker) 
+	{
+		auto __storage = invoker(std::vector<T>(), rv);
+		using type = std::decay_t<decltype(__storage[0])>;
+		TwoPack<T, type> pack = TwoPack<T, type>(rv, RangeView<type>(), std::function< std::vector<type>(std::vector<T>&, RangeView<T>&) >(invoker.function));
+		return pack;
+	}
+
+	template<typename T, typename ST, typename F>
+	auto operator|(TwoPack<T, ST> pack, LazyFiniteInvoker<F> invoker) 
+	{
+		if (pack.firstRange.isCounterInited() == false)
+		{
+			invoker(std::vector<T>(), pack.firstRange);
+		}
+
+		pack.newRange.add(std::function< std::vector<ST>(std::vector<ST>&, RangeView<ST>&)>(invoker.function));
+		auto _tc = pack.firstRange.toVector();
+		pack.newRange.replaceStorage(pack._func(_tc, pack.firstRange));
+		return pack.newRange;
+	}
 
 	template<typename T>
 	RangeView<T> operator|(std::vector<T> &vec, RangeView<T> rv) 
@@ -141,27 +199,27 @@ namespace view {
 		for (auto &act : rv.getActions()) 
 		{
 			result = act(result);
-
 		}
 		return _predicate(result);
 
 	}
 
-	RangeView<int> ints(int n) {
+	RangeView<int> ints(int n) 
+	{
 		auto int_generator_func = [n](auto &vec, auto &other) 
 		{
-			for (int i = n, Count = 0; Count < other.Count; i++, Count++) 
+			for (int i = n, _count = 0; _count < other.Count(); i++, _count++) 
 			{
 				vec.push_back(i);
 			}
 
 			return vec;
 		};
-
 		RangeView<int> rv = RangeView<int>(std::function<std::vector<int>(std::vector<int>&, RangeView<int>&)>(int_generator_func));
-
 		return rv;
 	}
+
+
 
 	template<typename T>
 	std::vector<T> RangeView<T>::toVector()
@@ -189,19 +247,42 @@ namespace view {
 
 
 
-	auto take(int n) {
-		auto take_func = [n](auto &v, auto &rv) {
-			rv.Count = n;
+	auto take(int n) 
+	{
+		auto take_func = [n](auto &v, auto &rv)
+		{
+			rv.setCount(n);
 			if (!rv.isInfinite())
 			{
-				if (n < rv.getResult().size()) {
+				if (n < rv.getResult().size())
 					rv.getResult().resize(n);
-				}
 			}
-
 			return v;
 		};
-
 		return LazyFiniteInvoker<decltype(take_func)>(take_func);
+	}
+
+	template<typename F>
+	auto transform(F &&pred)
+	{
+		auto transform_func = [pred](auto &v, auto &rv) 
+		{
+			std::vector<std::decay_t<decltype(pred(v[0]))>> result;
+			for (size_t i = 0; i < v.size(); i++) 
+			{
+				result.push_back(pred(v[i]));
+			}
+
+			return result;
+		};
+		return FiniteInvoker<decltype(transform_func)>(transform_func);
+	}
+
+	template <class TView>
+	auto accumulate(TView view) 
+	{
+		auto collection = view.toVector();
+		using type = std::decay_t<decltype(collection[0])>;
+		return std::accumulate(collection.begin(), collection.end(), type());
 	}
 }
