@@ -19,5 +19,12 @@ int main() {
 		| view::transform([](int i) {return i * i; })
 		| view::take(10));
 
+	auto str = view::ints(1)
+		| view::transform([](int i) { return std::to_string(i); })
+		| view::remove_if([](std::string i) { return i.length() < 2; })
+		| view::take(20);
+
+	auto resstr = view::accumulate(str);
+
 	int test = 0;
 }

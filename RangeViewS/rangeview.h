@@ -171,6 +171,7 @@ namespace view {
 		return pack;
 	}
 
+
 	template<typename T, typename ST, typename F>
 	auto operator|(TwoPack<T, ST> pack, LazyFiniteInvoker<F> invoker) 
 	{
@@ -184,6 +185,13 @@ namespace view {
 		pack.newRange.replaceStorage(pack._func(_tc, pack.firstRange));
 		return pack.newRange;
 	}
+
+	template<typename T, typename R, typename F>
+	auto operator|(TwoPack<T, R> pack, Invoker<F> invoker) 
+	{
+		pack.newRange.add(std::function< std::vector<R>(std::vector<R>&, RangeView<R>&) >(invoker.function));
+		return pack;
+	};
 
 	template<typename T>
 	RangeView<T> operator|(std::vector<T> &vec, RangeView<T> rv) 
@@ -284,5 +292,23 @@ namespace view {
 		auto collection = view.toVector();
 		using type = std::decay_t<decltype(collection[0])>;
 		return std::accumulate(collection.begin(), collection.end(), type());
+	}
+
+	template<typename F>
+	auto remove_if(F &&func) 
+	{
+		auto remove_if_func = [func](auto &v, auto &rv) 
+		{
+			for (size_t i = 0; i < v.size();) 
+			{
+				if (func(v[i]))
+					v.erase(v.begin() + i);
+				else
+					i++;
+			}
+			return v;
+		};
+
+		return Invoker<decltype(remove_if_func)>(remove_if_func);
 	}
 }
