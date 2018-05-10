@@ -57,6 +57,9 @@ namespace view {
 
 		std::vector<T> toVector();
 
+		template<typename T>
+		operator std::vector<T>() { return toVector(); }
+
 		void setCount(int to) 
 		{
 			_infinte = false;
@@ -139,6 +142,12 @@ namespace view {
 	}
 
 	template<typename T, typename F>
+	RangeView<T> operator|(RangeView<T> range, Invoker<F> func) {
+		range.add(std::function< std::vector<T>(std::vector<T>&, RangeView<T>&) >(func.function));
+		return range;
+	}
+
+	template<typename T, typename F>
 	auto operator|(RangeView<T> range, LazyFiniteInvoker<F> invoker)
 	{
 		if (range.isInfinite())
@@ -181,7 +190,7 @@ namespace view {
 		}
 
 		pack.newRange.add(std::function< std::vector<ST>(std::vector<ST>&, RangeView<ST>&)>(invoker.function));
-		auto _tc = pack.firstRange.toVector();
+		auto _tc = static_cast<std::vector<T>>(pack.firstRange);
 		pack.newRange.replaceStorage(pack._func(_tc, pack.firstRange));
 		return pack.newRange;
 	}
@@ -254,8 +263,7 @@ namespace view {
 	}
 
 
-
-	auto take(int n) 
+	auto take(uint32_t n) 
 	{
 		auto take_func = [n](auto &v, auto &rv)
 		{
@@ -310,5 +318,16 @@ namespace view {
 		};
 
 		return Invoker<decltype(remove_if_func)>(remove_if_func);
+	}
+
+	auto reverse() 
+	{
+		auto func = [](auto &v, auto &rv) 
+		{
+			std::reverse(v.begin(), v.end());
+			return v;
+		};
+
+		return Invoker<decltype(func)>(func);
 	}
 }
