@@ -65,6 +65,7 @@ namespace view {
 			_infinte = false;
 			_counterInit = true;
 			_count = to;
+			_isChanged = true;
 		}
 
 		bool isCounterInited() 
@@ -79,6 +80,7 @@ namespace view {
 
 		void replaceStorage(const std::vector<T> &storage) 
 		{
+			_isChanged = true;
 			_storage.clear();
 			_storage = storage;
 		}
@@ -95,10 +97,12 @@ namespace view {
 
 		void add(VFunc func)
 		{
+			_isChanged = true;
 			_actions.push_back(func);
 		}
 
 	private:
+		bool _isChanged = true;
 		VFunc _generator;
 		bool _infinte = false;
 		bool _constructed = false;
@@ -176,7 +180,7 @@ namespace view {
 	{
 		auto __storage = invoker(std::vector<T>(), rv);
 		using type = std::decay_t<decltype(__storage[0])>;
-		TwoPack<T, type> pack = TwoPack<T, type>(rv, RangeView<type>(), std::function< std::vector<type>(std::vector<T>&, RangeView<T>&) >(invoker.function));
+		TwoPack<T, type> pack = TwoPack<T, type>(rv, RangeView<type>(), std::function< std::vector<type>(const std::vector<T>&, RangeView<T>&) >(invoker.function));
 		return pack;
 	}
 
@@ -241,24 +245,29 @@ namespace view {
 	template<typename T>
 	std::vector<T> RangeView<T>::toVector()
 	{
-		if (_constructed)
+		if (_isChanged) 
 		{
-			if (_infinte)
+			if (_constructed)
 			{
-				throw new std::bad_cast;
+				if (_infinte)
+				{
+					throw new std::bad_cast;
+				}
+				_generator(_result, *this);
 			}
-			_generator(_result, *this);
-		}
-		else
-		{
-			_result.clear();
-			_result.assign(this->getCollection().begin(), this->getCollection().end());
+			else
+			{
+				_result.clear();
+				_result.assign(this->getCollection().begin(), this->getCollection().end());
+			}
+
+			for (auto &action : this->getActions())
+			{
+				action(_result, *this);
+			}
+			_isChanged = true;
 		}
 
-		for (auto &action : this->getActions())
-		{
-			action(_result, *this);
-		}
 		return _result;
 	}
 

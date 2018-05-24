@@ -33,8 +33,7 @@ TEST_F(RangeTest, simpleTake)
 
 TEST_F(RangeTest, removeAndTake) 
 {
-	auto rv = (*_test_vector) | view::remove_if([](int i) { return i % 2 == 0; })
-		| view::take(2);
+	auto rv = (*_test_vector) | view::remove_if([](int i) { return i % 2 == 0; }) | view::take(2);
 
 	ASSERT_EQ(static_cast<std::vector<int>>(rv), std::vector<int>({ 1, 3 }));
 }
@@ -84,6 +83,8 @@ TEST_F(RangeTest, Transform) {
 
 	ASSERT_EQ(accumulate(rv), "56789");
 }
+
+
 
 int main(int argc, char *argv[]) 
 {
